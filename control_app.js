@@ -1,6 +1,7 @@
 import ps_list from 'ps-list';
 import { exec } from 'child_process';
 import readline from 'readline';
+import fs from 'fs';
 /*
 pm2 start your_script.js
 pm2 stop your_script.js
@@ -50,6 +51,13 @@ class KillApps{
         this.speed_animation = speed_animation;
     }
 
+    write_time_in_file(){
+        fs.writeFileSync("time.txt", this.timer.toString());
+        // let file = fs.openSync("time.txt", "w+");
+        // fs.writeSync(file, this.timer);
+        // fs.closeSync(file);
+        this.monitorApps();
+    }
 
     /*======================*/
     /*    Kill Processes    */
@@ -81,7 +89,7 @@ class KillApps{
         setInterval(async()=>{
             let work_processes = await ps_list();
             let work_processes_filter = work_processes.filter(proc => this.block_apps.includes(proc.name));
-            
+
             // if (work_processes_filter.length !== 0){
             //     console.log(work_processes_filter);
             // }
@@ -90,28 +98,40 @@ class KillApps{
             // }
 
 
-            if (work_processes_filter.length !== 0){  
+            if (work_processes_filter.length !== 0){
+                this.timer = fs.readFileSync("time.txt", "utf8");
+
                 find_processes = true;
                 console.log("You on process");
 
-                //сдесь сделать зытычку в виде промиса, который принемает setTimeout и this.time
-                
+                await new Promise((resolve, reject)=>{
+                    setInterval(()=>{
+                        this.timer -=1000;
+                    },1000);
+
+                    setTimeout(()=>{
+                        resolve();
+                    },this.interval_monitoring)
+                });
 
                 await Promise.all(
-                    setTimeout(async ()=>{
-                        work_processes_filter.forEach(async proc => {
-                            try{
-                                await this.kill_apps(proc);
-                            }
-                            catch (error){
-                                console.warn(error);
-                            }
-                        });
-                    }, this.timer)
+                    work_processes_filter.forEach(async proc => {
+                        try{
+                            await this.kill_apps(proc);
+                        }
+                        catch (error){
+                            console.warn(error);
+                        }
+                    })
                 );
                 work_processes_filter = "";
 
             }
+            else{
+                this.write_time_in_file();
+            }
+
+
         }, this.interval_monitoring);
     }
 
@@ -167,5 +187,6 @@ const block_apps = [
     "GWT.exe",
     // "Code.exe",
 ];
-let killApp_1 = new KillApps("s" , 2, block_apps, 4, {type_interval_monitoring:"s", interval_monitoring:10, speed_animation:150});
-killApp_1.monitorApps();
+let killApp_1 = new KillApps("s" , 1, block_apps, 4, {type_interval_monitoring:"s", interval_monitoring:10, speed_animation:150});
+// killApp_1.monitorApps();
+killApp_1.write_time_in_file();
