@@ -21,7 +21,9 @@ class KillApps{
     /*  Receives User Data  */
     /*======================*/
     constructor(time_type, timer, block_apps, type_load, {type_interval_monitoring="s", interval_monitoring=10, speed_animation=150}){
-    // mandatory parameters
+        /*----------------------*/
+        /* mandatory parameters */
+        /*----------------------*/
         //type time: second, minute, hour
         if (!["s", "m", "h"].includes(time_type)){
             throw new Error("Need select: 's', 'm', 'h'");
@@ -29,6 +31,8 @@ class KillApps{
         if(time_type==="s") this.timer = timer *1000; //conversion second
         else if(time_type==="m") this.timer = timer *60*1000; //conversion minute
         else if(time_type==="h") this.timer = timer *60*60*1000; //conversion hour
+        this.new_timer = timer;
+
         //list app for block
         if(Array.isArray(block_apps) && block_apps.length !== 0){
             this.block_apps = block_apps;
@@ -36,28 +40,34 @@ class KillApps{
         else{
             throw new Error("Need array with apps");
         }
+
         //type saner load
         if(typeof type_load !== "number" || type_load < 1 || type_load > 4){
             throw new Error("Need select type load: 1, 2, 3, 4");
         }
         this.type_load = type_load-1;
 
-    // not optional parameters
+        /*-------------------------*/
+        /* not optional parameters */
+        /*-------------------------*/
         //interval monitoring processes(in second)
         if(type_interval_monitoring==="s") this.interval_monitoring = interval_monitoring*1000;
         if(type_interval_monitoring==="m") this.interval_monitoring = interval_monitoring*60*1000;
         if(type_interval_monitoring==="h") this.interval_monitoring = interval_monitoring*60*60*1000;
+
         //speed for playing animation
         this.speed_animation = speed_animation;
     }
 
+
+    /*========================================*/
+    /*    Write "timer" in file "time.txt"    */
+    /*========================================*/
     write_time_in_file(){
         fs.writeFileSync("time.txt", this.timer.toString());
-        // let file = fs.openSync("time.txt", "w+");
-        // fs.writeSync(file, this.timer);
-        // fs.closeSync(file);
         this.monitorApps();
     }
+
 
     /*======================*/
     /*    Kill Processes    */
@@ -89,33 +99,32 @@ class KillApps{
         setInterval(async()=>{
             let work_processes = await ps_list();
             let work_processes_filter = work_processes.filter(proc => this.block_apps.includes(proc.name));
-
             // if (work_processes_filter.length !== 0){
-            //     console.log(work_processes_filter);
+            //     console.log("\n"+work_processes_filter);
             // }
             // else{
-            //     console.log("non");
+            //     console.log("\nnon");
             // }
-
 
             if (work_processes_filter.length !== 0){
                 this.timer = fs.readFileSync("time.txt", "utf8");
 
                 find_processes = true;
-                console.log("You on process");
+                console.log(`\nYou on process ${work_processes_filter[0].name}`);
 
-                await new Promise((resolve, reject)=>{
+                //экземпляр timer, я его рот ебал
+                await new Promise(resolve=>{
                     setInterval(()=>{
-                        this.timer -=1000;
+                        this.new_timer -=1000;
                     },1000);
 
                     setTimeout(()=>{
                         resolve();
-                    },this.interval_monitoring)
+                    },this.timer)
                 });
 
                 await Promise.all(
-                    work_processes_filter.forEach(async proc => {
+                    work_processes_filter.map(async proc => {
                         try{
                             await this.kill_apps(proc);
                         }
@@ -128,6 +137,7 @@ class KillApps{
 
             }
             else{
+                this.timer = this.new_timer;
                 this.write_time_in_file();
             }
 
@@ -187,6 +197,6 @@ const block_apps = [
     "GWT.exe",
     // "Code.exe",
 ];
-let killApp_1 = new KillApps("s" , 1, block_apps, 4, {type_interval_monitoring:"s", interval_monitoring:10, speed_animation:150});
+let killApp_1 = new KillApps("m" , 2, block_apps, 4, {type_interval_monitoring:"s", interval_monitoring:3, speed_animation:150});
 // killApp_1.monitorApps();
 killApp_1.write_time_in_file();
